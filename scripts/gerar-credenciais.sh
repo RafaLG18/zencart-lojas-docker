@@ -8,6 +8,7 @@ cd "$(dirname "$0")/.."
 
 N=10
 BASE_PORT=8011   # grupo1 = 8012
+SSH_BASE_PORT=2211   # grupo1 = 2212
 ADMIN_DIR=manage
 HOST=${HOST:-}
 
@@ -33,8 +34,13 @@ if [ -e .env ]; then
 fi
 
 umask 077
-mkdir -p auth
+mkdir -p auth ssh
 rand() { openssl rand -hex "$1"; }
+
+# Chave de host SSH única para as 10 lojas; mantida se já existir, para não alertar "chave alterada"
+if [ ! -e ssh/ssh_host_ed25519_key ]; then
+  ssh-keygen -q -t ed25519 -N '' -C zencart-lojas -f ssh/ssh_host_ed25519_key
+fi
 
 {
   echo "DB_ROOT_PASSWORD=$(rand 16)"
@@ -47,10 +53,13 @@ for i in $(seq 1 "$N"); do
   url="http://$SHOW_HOST:$port"
   web_pass=$(rand 6)
   admin_pass="$(rand 6)Zc1"
+  ssh_port=$((SSH_BASE_PORT + i))
+  ssh_pass=$(rand 6)
 
   {
     echo "GRUPO${i}_DB_PASSWORD=$(rand 16)"
     echo "GRUPO${i}_ADMIN_PASSWORD=$admin_pass"
+    echo "GRUPO${i}_SSH_PASSWORD=$ssh_pass"
     [ -n "$HOST" ] && echo "GRUPO${i}_URL=http://$HOST:$port"
   } >> .env
 
@@ -65,10 +74,13 @@ senha=$web_pass
 admin=$url/$ADMIN_DIR
 admin_usuario=$g
 admin_senha=$admin_pass
+ssh=ssh $g@$SHOW_HOST -p $ssh_port
+ssh_usuario=$g
+ssh_senha=$ssh_pass
 
 CRED
 done
 
-echo "Gerados .env, auth/*.htpasswd e credenciais.txt para $N grupos."
+echo "Gerados .env, auth/*.htpasswd, ssh/ e credenciais.txt para $N grupos."
 echo "URLs em credenciais.txt usam: $SHOW_HOST"
 echo "Próximo passo: docker compose up -d --build"

@@ -1,0 +1,20 @@
+# SSH do grupo: só o usuário da loja (AllowUsers vem do entrypoint), sem root e sem túneis
+Include /etc/ssh/sshd_config.d/*.conf
+
+Port 22
+HostKey /etc/ssh/ssh_host_ed25519_key
+
+PermitRootLogin no
+PasswordAuthentication yes
+KbdInteractiveAuthentication no
+UsePAM yes
+
+AllowTcpForwarding no
+AllowStreamLocalForwarding no
+AllowAgentForwarding no
+X11Forwarding no
+PermitTunnel no
+GatewayPorts no
+
+PrintMotd no
+Subsystem sftp internal-sftp

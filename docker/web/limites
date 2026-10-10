@@ -1,0 +1,55 @@
+#!/bin/bash
+# Mostra limites e uso desta loja. CPU e RAM vêm do cgroup do container
+# (free/top/nproc mostram a máquina inteira, não o limite da loja).
+[ -r /etc/zc/limites.conf ] && . /etc/zc/limites.conf
+CG=/sys/fs/cgroup
+QUOTA_MB=${DISK_QUOTA_MB:-2048}
+
+mb() { echo $(( $1 / 1024 / 1024 )); }
+pct() { [ "$2" -gt 0 ] && echo $(( $1 * 100 / $2 )) || echo 0; }
+
+# CPU: limite em cpu.max ("cota período"); uso medido por 0,5 s em cpu.stat
+read -r cpu_quota cpu_period < "$CG/cpu.max"
+if [ "$cpu_quota" = max ]; then
+  cpu_lim="sem limite"
+else
+  cpu_lim="$(awk -v q="$cpu_quota" -v p="$cpu_period" 'BEGIN { printf "%.1f", q / p }') CPU"
+fi
+u1=$(awk '/^usage_usec/ { print $2 }' "$CG/cpu.stat"); sleep 0.5
+u2=$(awk '/^usage_usec/ { print $2 }' "$CG/cpu.stat")
+cpu_uso=$(awk -v d=$((u2 - u1)) 'BEGIN { printf "%.2f", d / 500000 }')
+
+# RAM
+mem_cur=$(cat "$CG/memory.current")
+mem_max=$(cat "$CG/memory.max")
+if [ "$mem_max" = max ]; then
+  ram="$(mb "$mem_cur") MB (sem limite)"
+else
+  ram="$(mb "$mem_cur") MB de $(mb "$mem_max") MB ($(pct "$mem_cur" "$mem_max")%)"
+fi
+
+# Disco: último valor medido pelo verificador de cota
+disk=$(cat /run/zc/cota.uso 2>/dev/null || du -sb /var/www/html 2>/dev/null | cut -f1)
+quota_b=$((QUOTA_MB * 1024 * 1024))
+uploads="liberados"
+[ -e /usr/local/etc/php/conf.d/zz-cota.ini ] && uploads="BLOQUEADOS (cota excedida, apague arquivos para liberar)"
+
+# Banco: credenciais do próprio grupo (root lê as do usuário do grupo)
+cnf="$HOME/.my.cnf"
+[ -r "$cnf" ] || cnf="/home/${GRUPO:-}/.my.cnf"
+db_bytes=$(mariadb --defaults-file="$cnf" -N -e \
+  "SELECT COALESCE(SUM(data_length + index_length), 0) FROM information_schema.tables WHERE table_schema = DATABASE()" 2>/dev/null)
+if [ -n "$db_bytes" ]; then
+  banco="${DB_DATABASE:-?}: $(awk -v b="$db_bytes" 'BEGIN { printf "%.1f", b / 1048576 }') MB (fora da cota)"
+else
+  banco="${DB_DATABASE:-?}: indisponível"
+fi
+
+cat <<EOF
+== Limites da loja ${GRUPO:-} ==
+CPU     limite ${cpu_lim} | em uso agora: ${cpu_uso} CPU
+RAM     ${ram}
+Disco   $(mb "${disk:-0}") MB de ${QUOTA_MB} MB ($(pct "${disk:-0}" "$quota_b")%) - arquivos da loja
+Upload  ${uploads}
+Banco   ${banco}
+EOF

@@ -14,6 +14,12 @@ x-web: &web
   networks:
     - backend
     - frontend
+  # Limites por loja; a cota de disco (DISK_QUOTA_MB) é suave e verificada dentro do container
+  deploy:
+    resources:
+      limits:
+        cpus: "0.5"
+        memory: 256M
 
 services:
   db:
@@ -44,7 +50,7 @@ services:
 
   grupo1:
     <<: *web
-    ports: ["8012:80"]
+    ports: ["8012:80", "2212:22"]
     environment:
       DB_DATABASE: zc_grupo1
       DB_USER: grupo1
@@ -52,13 +58,16 @@ services:
       ADMIN_USER: grupo1
       ADMIN_PASSWORD: ${GRUPO1_ADMIN_PASSWORD:?rode ./scripts/gerar-credenciais.sh}
       ZC_URL: ${GRUPO1_URL:-}
+      SSH_PASSWORD: ${GRUPO1_SSH_PASSWORD:?rode ./scripts/gerar-credenciais.sh}
+      DISK_QUOTA_MB: 2048
     volumes:
       - grupo1_files:/var/www/html
       - ./auth/grupo1.htpasswd:/etc/apache2/.htpasswd:ro
+      - ./ssh:/run/zc-ssh-host:ro
 
   grupo2:
     <<: *web
-    ports: ["8013:80"]
+    ports: ["8013:80", "2213:22"]
     environment:
       DB_DATABASE: zc_grupo2
       DB_USER: grupo2
@@ -66,13 +75,16 @@ services:
       ADMIN_USER: grupo2
       ADMIN_PASSWORD: ${GRUPO2_ADMIN_PASSWORD:?rode ./scripts/gerar-credenciais.sh}
       ZC_URL: ${GRUPO2_URL:-}
+      SSH_PASSWORD: ${GRUPO2_SSH_PASSWORD:?rode ./scripts/gerar-credenciais.sh}
+      DISK_QUOTA_MB: 2048
     volumes:
       - grupo2_files:/var/www/html
       - ./auth/grupo2.htpasswd:/etc/apache2/.htpasswd:ro
+      - ./ssh:/run/zc-ssh-host:ro
 
   grupo3:
     <<: *web
-    ports: ["8014:80"]
+    ports: ["8014:80", "2214:22"]
     environment:
       DB_DATABASE: zc_grupo3
       DB_USER: grupo3
@@ -80,13 +92,16 @@ services:
       ADMIN_USER: grupo3
       ADMIN_PASSWORD: ${GRUPO3_ADMIN_PASSWORD:?rode ./scripts/gerar-credenciais.sh}
       ZC_URL: ${GRUPO3_URL:-}
+      SSH_PASSWORD: ${GRUPO3_SSH_PASSWORD:?rode ./scripts/gerar-credenciais.sh}
+      DISK_QUOTA_MB: 2048
     volumes:
       - grupo3_files:/var/www/html
       - ./auth/grupo3.htpasswd:/etc/apache2/.htpasswd:ro
+      - ./ssh:/run/zc-ssh-host:ro
 
   grupo4:
     <<: *web
-    ports: ["8015:80"]
+    ports: ["8015:80", "2215:22"]
     environment:
       DB_DATABASE: zc_grupo4
       DB_USER: grupo4
@@ -94,13 +109,16 @@ services:
       ADMIN_USER: grupo4
       ADMIN_PASSWORD: ${GRUPO4_ADMIN_PASSWORD:?rode ./scripts/gerar-credenciais.sh}
       ZC_URL: ${GRUPO4_URL:-}
+      SSH_PASSWORD: ${GRUPO4_SSH_PASSWORD:?rode ./scripts/gerar-credenciais.sh}
+      DISK_QUOTA_MB: 2048
     volumes:
       - grupo4_files:/var/www/html
       - ./auth/grupo4.htpasswd:/etc/apache2/.htpasswd:ro
+      - ./ssh:/run/zc-ssh-host:ro
 
   grupo5:
     <<: *web
-    ports: ["8016:80"]
+    ports: ["8016:80", "2216:22"]
     environment:
       DB_DATABASE: zc_grupo5
       DB_USER: grupo5
@@ -108,13 +126,16 @@ services:
       ADMIN_USER: grupo5
       ADMIN_PASSWORD: ${GRUPO5_ADMIN_PASSWORD:?rode ./scripts/gerar-credenciais.sh}
       ZC_URL: ${GRUPO5_URL:-}
+      SSH_PASSWORD: ${GRUPO5_SSH_PASSWORD:?rode ./scripts/gerar-credenciais.sh}
+      DISK_QUOTA_MB: 2048
     volumes:
       - grupo5_files:/var/www/html
       - ./auth/grupo5.htpasswd:/etc/apache2/.htpasswd:ro
+      - ./ssh:/run/zc-ssh-host:ro
 
   grupo6:
     <<: *web
-    ports: ["8017:80"]
+    ports: ["8017:80", "2217:22"]
     environment:
       DB_DATABASE: zc_grupo6
       DB_USER: grupo6
@@ -122,13 +143,16 @@ services:
       ADMIN_USER: grupo6
       ADMIN_PASSWORD: ${GRUPO6_ADMIN_PASSWORD:?rode ./scripts/gerar-credenciais.sh}
       ZC_URL: ${GRUPO6_URL:-}
+      SSH_PASSWORD: ${GRUPO6_SSH_PASSWORD:?rode ./scripts/gerar-credenciais.sh}
+      DISK_QUOTA_MB: 2048
     volumes:
       - grupo6_files:/var/www/html
       - ./auth/grupo6.htpasswd:/etc/apache2/.htpasswd:ro
+      - ./ssh:/run/zc-ssh-host:ro
 
   grupo7:
     <<: *web
-    ports: ["8018:80"]
+    ports: ["8018:80", "2218:22"]
     environment:
       DB_DATABASE: zc_grupo7
       DB_USER: grupo7
@@ -136,13 +160,16 @@ services:
       ADMIN_USER: grupo7
       ADMIN_PASSWORD: ${GRUPO7_ADMIN_PASSWORD:?rode ./scripts/gerar-credenciais.sh}
       ZC_URL: ${GRUPO7_URL:-}
+      SSH_PASSWORD: ${GRUPO7_SSH_PASSWORD:?rode ./scripts/gerar-credenciais.sh}
+      DISK_QUOTA_MB: 2048
     volumes:
       - grupo7_files:/var/www/html
       - ./auth/grupo7.htpasswd:/etc/apache2/.htpasswd:ro
+      - ./ssh:/run/zc-ssh-host:ro
 
   grupo8:
     <<: *web
-    ports: ["8019:80"]
+    ports: ["8019:80", "2219:22"]
     environment:
       DB_DATABASE: zc_grupo8
       DB_USER: grupo8
@@ -150,13 +177,16 @@ services:
       ADMIN_USER: grupo8
       ADMIN_PASSWORD: ${GRUPO8_ADMIN_PASSWORD:?rode ./scripts/gerar-credenciais.sh}
       ZC_URL: ${GRUPO8_URL:-}
+      SSH_PASSWORD: ${GRUPO8_SSH_PASSWORD:?rode ./scripts/gerar-credenciais.sh}
+      DISK_QUOTA_MB: 2048
     volumes:
       - grupo8_files:/var/www/html
       - ./auth/grupo8.htpasswd:/etc/apache2/.htpasswd:ro
+      - ./ssh:/run/zc-ssh-host:ro
 
   grupo9:
     <<: *web
-    ports: ["8020:80"]
+    ports: ["8020:80", "2220:22"]
     environment:
       DB_DATABASE: zc_grupo9
       DB_USER: grupo9
@@ -164,13 +194,16 @@ services:
       ADMIN_USER: grupo9
       ADMIN_PASSWORD: ${GRUPO9_ADMIN_PASSWORD:?rode ./scripts/gerar-credenciais.sh}
       ZC_URL: ${GRUPO9_URL:-}
+      SSH_PASSWORD: ${GRUPO9_SSH_PASSWORD:?rode ./scripts/gerar-credenciais.sh}
+      DISK_QUOTA_MB: 2048
     volumes:
       - grupo9_files:/var/www/html
       - ./auth/grupo9.htpasswd:/etc/apache2/.htpasswd:ro
+      - ./ssh:/run/zc-ssh-host:ro
 
   grupo10:
     <<: *web
-    ports: ["8021:80"]
+    ports: ["8021:80", "2221:22"]
     environment:
       DB_DATABASE: zc_grupo10
       DB_USER: grupo10
@@ -178,9 +211,12 @@ services:
       ADMIN_USER: grupo10
       ADMIN_PASSWORD: ${GRUPO10_ADMIN_PASSWORD:?rode ./scripts/gerar-credenciais.sh}
       ZC_URL: ${GRUPO10_URL:-}
+      SSH_PASSWORD: ${GRUPO10_SSH_PASSWORD:?rode ./scripts/gerar-credenciais.sh}
+      DISK_QUOTA_MB: 2048
     volumes:
       - grupo10_files:/var/www/html
       - ./auth/grupo10.htpasswd:/etc/apache2/.htpasswd:ro
+      - ./ssh:/run/zc-ssh-host:ro
 
 networks:
   backend:

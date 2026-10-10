@@ -1,7 +1,8 @@
-# Gerados por scripts/gerar-credenciais.sh (contêm senhas)
+# Gerados por scripts/gerar-credenciais.sh (contêm senhas e a chave de host SSH)
 .env
 credenciais.txt
 auth/
+ssh/
 
 # Ferramentas locais de IA e planejamento
 .wolf/
