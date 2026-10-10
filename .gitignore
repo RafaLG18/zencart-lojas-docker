@@ -1,0 +1,14 @@
+# Gerados por scripts/gerar-credenciais.sh (contêm senhas)
+.env
+credenciais.txt
+auth/
+
+# Ferramentas locais de IA e planejamento
+.wolf/
+.claude/
+.codex/
+.agents/
+openspec/
+AGENTS.md
+CLAUDE.md
+GEMINI.md
