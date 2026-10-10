@@ -1,19 +1,20 @@
 # Lojas Zen Cart por grupo
 
-Sobe **10 lojas Zen Cart 2.1.0 independentes** (grupo1 a grupo10), já instaladas e prontas para uso, com um único `docker compose up`. Cada grupo tem sua loja, seu painel administrativo, seu banco de dados isolado e sua senha de acesso.
+Sobe **10 lojas Zen Cart 2.1.0 independentes** (grupo1 a grupo10), já instaladas e prontas para uso, com um único `docker compose up`. Cada grupo tem sua loja, seu painel administrativo, seu banco de dados isolado, seu acesso SSH e uma fatia fixa da máquina (0.5 CPU, 256 MB de RAM e cota de 2 GB de disco).
 
 Não há instalação manual: o instalador web do Zen Cart nunca aparece.
 
 ## Requisitos
 
 - Docker com o plugin Compose (`docker compose version`)
-- `openssl` no host (usado para gerar as senhas)
-- Cerca de 1,5 GB de RAM livre e as portas **8012 a 8021** disponíveis
+- `openssl` e `ssh-keygen` no host (usados para gerar senhas e a chave SSH)
+- Até 5 CPUs e 3 GB de RAM livres no pior caso (10 lojas no limite + banco)
+- Portas **8012 a 8021** (lojas) e **2212 a 2221** (SSH) disponíveis
 
 ## Início rápido
 
 ```bash
-./scripts/gerar-credenciais.sh      # 1x: cria .env, auth/ e credenciais.txt
+./scripts/gerar-credenciais.sh      # 1x: cria .env, auth/, ssh/ e credenciais.txt
 docker compose up -d --build        # sobe o banco e as 10 lojas
 ```
 
@@ -21,13 +22,38 @@ A primeira subida leva alguns minutos (build da imagem + instalação dos 10 ban
 
 ## Endereços
 
-| Grupo | Loja | Painel admin |
-|---|---|---|
-| grupoN | `http://<servidor>:<8011+N>` | `http://<servidor>:<8011+N>/manage` |
-| grupo1 | `:8012` | `:8012/manage` |
-| grupo10 | `:8021` | `:8021/manage` |
+| Grupo | Loja | Painel admin | SSH |
+|---|---|---|---|
+| grupoN | `http://<servidor>:<8011+N>` | `http://<servidor>:<8011+N>/manage` | `ssh grupoN@<servidor> -p <2211+N>` |
+| grupo1 | `:8012` | `:8012/manage` | `-p 2212` |
+| grupo10 | `:8021` | `:8021/manage` | `-p 2221` |
 
-Todo acesso pede antes o login do navegador (Basic Auth) do grupo. Depois, o painel `/manage` pede o login de admin do Zen Cart. Os dois estão em `credenciais.txt`.
+Todo acesso pede antes o login do navegador (Basic Auth) do grupo. Depois, o painel `/manage` pede o login de admin do Zen Cart. O SSH tem senha própria. Tudo está em `credenciais.txt`.
+
+## Limites e acesso SSH
+
+Cada loja roda com limites fixos, iguais para todos os grupos:
+
+| Recurso | Limite | O que acontece ao atingir |
+|---|---|---|
+| CPU | 0.5 | A loja fica mais lenta; as outras não são afetadas |
+| RAM | 256 MB | O container é reiniciado (em teste de carga, o pico foi de ~92 MB) |
+| Disco | 2 GB (cota suave, só arquivos da loja) | O envio de arquivos pela loja é bloqueado até liberar espaço; verificação a cada 5 min |
+
+O banco de cada grupo fica fora da cota. Pelo SSH, o grupo pode gravar acima de 2 GB; só o envio pela loja é bloqueado.
+
+Pelo SSH, o grupo entra no container da própria loja **sem root**, com os arquivos da loja em `~/loja` e o cliente `mariadb` já conectado ao próprio banco. Túneis SSH são bloqueados. Ao entrar, e a qualquer momento com o comando `limites`, ele vê:
+
+```
+== Limites da loja grupo3 ==
+CPU     limite 0.5 CPU | em uso agora: 0.02 CPU
+RAM     47 MB de 256 MB (18%)
+Disco   25 MB de 2048 MB (1%) - arquivos da loja
+Upload  liberados
+Banco   zc_grupo3: 0.8 MB (fora da cota)
+```
+
+Use `limites` em vez de `free`, `top` ou `nproc`: dentro do container, esses comandos mostram a máquina inteira, não o limite da loja.
 
 ## Estrutura da pasta
 
@@ -43,6 +69,10 @@ Todo acesso pede antes o login do navegador (Basic Auth) do grupo. Depois, o pai
 |   |   +-- zc-entrypoint.sh    instala a loja no banco do grupo na 1a subida
 |   |   +-- zc-admin.php        define usuário/senha do admin
 |   |   +-- zc-configure.php    gera os configure.php no build
+|   |   +-- zc-cota.sh          verifica a cota de disco e bloqueia uploads
+|   |   +-- limites             comando que mostra os limites (SSH)
+|   |   +-- sshd_config         SSH do grupo (sem root, sem túneis)
+|   |   +-- mpm_prefork.conf    Apache dimensionado para 256 MB
 |   |   +-- php.ini
 |   |   +-- auth.conf           Basic Auth do Apache
 |   +-- db/
@@ -56,6 +86,7 @@ Todo acesso pede antes o login do navegador (Basic Auth) do grupo. Depois, o pai
 +-- .env                        GERADO - senhas usadas pelo compose (não distribuir)
 +-- credenciais.txt             GERADO - acessos para entregar aos grupos
 +-- auth/                       GERADO - grupoN.htpasswd (Basic Auth)
++-- ssh/                        GERADO - chave de host SSH (a mesma para as 10 lojas)
 ```
 
 Os itens marcados **GERADO** são criados por `scripts/gerar-credenciais.sh` e contêm segredos. Guarde-os com cuidado e não os versione.
@@ -100,6 +131,9 @@ senha=...
 admin=http://<ip-do-servidor>:8012/manage
 admin_usuario=grupo1    <- login do painel Zen Cart
 admin_senha=...
+ssh=ssh grupo1@<ip-do-servidor> -p 2212
+ssh_usuario=grupo1      <- login SSH
+ssh_senha=...
 ```
 
 A senha de root do banco e as senhas de banco dos grupos ficam só no `.env`. Os grupos não precisam delas.
@@ -134,7 +168,9 @@ Dica: reserve o IP da máquina no roteador (DHCP estático) para ele não mudar 
          build:  Zen Cart baixado, admin renomeado para /manage,
                  zc_install removido, configure.php lendo o ambiente
          subida: se o banco do grupo ainda não tem a loja,
-                 importa o SQL oficial e define o admin
+                 importa o SQL oficial e define o admin;
+                 cria o usuário SSH, inicia sshd e o verificador de cota
+         limites: 0.5 CPU e 256 MB por loja; cota de 2 GB nos arquivos
          volume: grupoN_files guarda os arquivos de cada loja
 ```
 
@@ -145,7 +181,10 @@ Dica: reserve o IP da máquina no roteador (DHCP estático) para ele não mudar 
 ## Problemas comuns
 
 **`required variable ... is missing a value: rode ./scripts/gerar-credenciais.sh`**
-O `.env` não existe. Rode `./scripts/gerar-credenciais.sh`.
+O `.env` não existe. Rode `./scripts/gerar-credenciais.sh`. Se o `.env` existe mas é de uma versão sem SSH (falta `GRUPON_SSH_PASSWORD`), nem o `down` funciona: derrube com valores provisórios (`env GRUPO1_SSH_PASSWORD=x ... GRUPO10_SSH_PASSWORD=x docker compose down -v`), apague `.env`, `auth/` e `credenciais.txt` e gere de novo.
+
+**SSH avisa "REMOTE HOST IDENTIFICATION HAS CHANGED"**
+A chave de host em `ssh/` foi apagada e recriada. Para o aluno: `ssh-keygen -R "[<servidor>]:22NN"` e conectar de novo. Mantenha `ssh/` ao gerar credenciais novas para evitar isso.
 
 **A loja não abre logo após o `up`**
 Na primeira subida, cada loja espera o banco e importa o SQL. Acompanhe com `docker compose logs -f grupo1` até aparecer `admin 'grupo1' configurado`.
@@ -161,3 +200,4 @@ Rode `docker compose up -d --build`. Os arquivos de lojas já criadas ficam no v
 - O acesso é HTTP sem TLS. Use em rede local ou de laboratório.
 - `.env` e `credenciais.txt` são criados com permissão `600`. Distribua a cada grupo só o bloco dele.
 - O banco não tem porta publicada no host.
+- O SSH dá shell dentro do container da loja, **sem root** e sem túneis; cada grupo só acessa o próprio banco. A chave de host fica em `ssh/` (fora do git).

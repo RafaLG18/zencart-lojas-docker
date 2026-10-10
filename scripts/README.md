@@ -1,6 +1,6 @@
 # Scripts de operação
 
-Comandos rodados **no host**, a partir de qualquer pasta (cada script vai sozinho para a raiz do projeto). Precisam de `bash`, `openssl` e Docker com Compose.
+Comandos rodados **no host**, a partir de qualquer pasta (cada script vai sozinho para a raiz do projeto). Precisam de `bash`, `openssl`, `ssh-keygen` e Docker com Compose.
 
 | Script | Quando usar |
 |---|---|
@@ -22,9 +22,10 @@ HOST=192.168.0.10 ./scripts/gerar-credenciais.sh   # opcional, ver "Variável HO
 
 | Arquivo | Permissão | Conteúdo | Quem usa |
 |---|---|---|---|
-| `.env` | 600 | `DB_ROOT_PASSWORD`, `GRUPON_DB_PASSWORD`, `GRUPON_ADMIN_PASSWORD` (e `GRUPON_URL` se `HOST` foi usado) | `docker compose` |
+| `.env` | 600 | `DB_ROOT_PASSWORD`, `GRUPON_DB_PASSWORD`, `GRUPON_ADMIN_PASSWORD`, `GRUPON_SSH_PASSWORD` (e `GRUPON_URL` se `HOST` foi usado) | `docker compose` |
 | `auth/grupoN.htpasswd` | 644 | Usuário `grupoN` + hash apr1 da senha do navegador | Apache de cada loja (Basic Auth) |
-| `credenciais.txt` | 600 | Por grupo: URL da loja, usuário/senha do navegador, URL do `/manage`, usuário/senha do admin | Você, para entregar aos grupos |
+| `ssh/ssh_host_ed25519_key` (+ `.pub`) | 600 | Chave de host SSH, a mesma para as 10 lojas. **Só é criada se ainda não existir.** | sshd de cada loja (montada só leitura) |
+| `credenciais.txt` | 600 | Por grupo: URL da loja, usuário/senha do navegador, URL do `/manage`, usuário/senha do admin, comando/usuário/senha do SSH | Você, para entregar aos grupos |
 
 Senhas geradas com `openssl rand`:
 
@@ -34,11 +35,13 @@ Senhas geradas com `openssl rand`:
 | Banco de cada grupo | 32 hex | Só no `.env` (os grupos não precisam dela) |
 | Navegador (Basic Auth) | 12 hex | `credenciais.txt` em texto puro; `auth/` só com hash |
 | Admin do Zen Cart | 12 hex + `Zc1` | `.env` e `credenciais.txt` |
+| SSH do grupo | 12 hex | `.env` e `credenciais.txt` |
 
 ### Regras
 
 - **Nunca sobrescreve.** Se `.env` já existir, avisa, sai com código 1 e não altera nada.
-- **Para gerar senhas novas**, apague `.env`, `auth/` e `credenciais.txt`, rode o script e depois `docker compose down -v && docker compose up -d`. O `-v` é obrigatório: os usuários do banco foram criados com as senhas antigas, e isso **apaga os dados de todas as lojas**.
+- **Para gerar senhas novas**, rode `docker compose down -v` **antes** de apagar o `.env` (sem ele, o compose não roda nem o `down`), apague `.env`, `auth/` e `credenciais.txt`, rode o script e depois `docker compose up -d`.
+- **Mantenha `ssh/`** ao gerar senhas novas: a chave de host continua a mesma e os alunos não recebem alerta de "chave alterada". O `-v` é obrigatório: os usuários do banco foram criados com as senhas antigas, e isso **apaga os dados de todas as lojas**.
 
 ### IP nas URLs do credenciais.txt
 
@@ -82,7 +85,7 @@ Devolve **uma** loja ao estado recém-instalado: apaga o banco e os arquivos daq
 
 ### O que é mantido
 
-- **Todas as senhas.** O usuário de banco e seu GRANT sobrevivem ao DROP/CREATE, e o `.htpasswd` e o `.env` não mudam. O `credenciais.txt` já entregue continua valendo.
+- **Todas as senhas**, inclusive a do SSH, e a chave de host SSH. O usuário de banco e seu GRANT sobrevivem ao DROP/CREATE, e `.htpasswd`, `.env` e `ssh/` não mudam. O `credenciais.txt` já entregue continua valendo, e o SSH não alerta mudança de chave.
 - **Os outros 9 grupos**, que não são parados nem tocados.
 
 A reinstalação leva poucos segundos. Para acompanhar:
@@ -101,3 +104,5 @@ docker compose logs -f grupo3     # espere: [zencart] admin 'grupo3' configurado
 | Abrir o banco de um grupo como o próprio grupo | `docker compose exec db mariadb -ugrupoN -p zc_grupoN` (senha: `GRUPON_DB_PASSWORD` do `.env`) |
 | Abrir o MariaDB como root | `docker compose exec db sh -c 'mariadb -uroot -p"$MARIADB_ROOT_PASSWORD"'` |
 | Atualizar o IP no `credenciais.txt` sem trocar senhas | `sed -i 's/<ip-antigo>/<ip-novo>/' credenciais.txt` |
+| Ver os limites de um grupo sem entrar por SSH | `docker compose exec -u grupoN grupoN limites` |
+| Aluno recebe alerta de chave SSH alterada | No computador do aluno: `ssh-keygen -R "[<servidor>]:22NN"` |
