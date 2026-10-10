@@ -8,7 +8,6 @@ auth/
 .claude/
 .codex/
 .agents/
-openspec/
 AGENTS.md
 CLAUDE.md
 GEMINI.md
